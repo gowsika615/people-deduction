@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI-VISION | Precision Analytics</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body { background: #ffffff; color: #1d1d1f; font-family: -apple-system, sans-serif; }
+        .main-container { max-width: 1200px; margin: 40px auto; }
+        .data-card { border-radius: 12px; border: 1px solid #e5e5e5; padding: 20px; background: #fff; }
+        
+        /* FEATURE: BIG VIEWPORT */
+        #viewport { position: relative; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid #ddd; }
+        #displayImg { width: 100%; height: auto; display: block; }
+        
+        /* FEATURE: NESW DIRECTIONS */
+        .dir-label { position: absolute; background: rgba(0,0,0,0.8); color: #fff; padding: 2px 10px; font-size: 11px; font-weight: bold; z-index: 10; border-radius: 4px; }
+        .n { top: 10px; left: 50%; transform: translateX(-50%); }
+        .s { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .w { left: 10px; top: 50%; transform: translateY(-50%); }
+        .e { right: 10px; top: 50%; transform: translateY(-50%); }
+
+        .btn-scan { background: #0071e3; color: #fff; border: none; border-radius: 8px; padding: 12px; font-weight: 600; width: 100%; }
+        .count-display { font-size: 3.5rem; font-weight: 700; color: #0071e3; margin: 10px 0; }
+        .zone-item { border-bottom: 1px solid #f0f0f0; padding: 8px 0; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="main-container px-3">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="fw-bold">Crowd Vision Analytics</h1>
+            <p class="text-muted">High-accuracy neural detection for security and flow monitoring.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="data-card mb-4">
+                <h6 class="fw-bold mb-3">Media Upload</h6>
+                <input type="file" id="mediaInput" class="form-control mb-3" accept="image/*,video/*">
+                <button onclick="execute()" id="runBtn" class="btn-scan">RUN ANALYTICS</button>
+            </div>
+
+            <div class="data-card">
+                <h6 class="fw-bold mb-3">Zone Breakdown</h6>
+                <div id="zoneData">
+                    <div class="zone-item d-flex justify-content-between">North-West: <span id="znw" class="fw-bold text-primary">0</span></div>
+                    <div class="zone-item d-flex justify-content-between">North-East: <span id="zne" class="fw-bold text-primary">0</span></div>
+                    <div class="zone-item d-flex justify-content-between">South-West: <span id="zsw" class="fw-bold text-primary">0</span></div>
+                    <div class="zone-item d-flex justify-content-between border-0">South-East: <span id="zse" class="fw-bold text-primary">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="data-card mb-4 text-center">
+                <p class="text-muted small text-uppercase mb-0">Total Detected Heads</p>
+                <div class="count-display" id="mainCount">0</div>
+            </div>
+
+            <div id="viewport">
+                <div class="dir-label n">NORTH</div>
+                <div class="dir-label s">SOUTH</div>
+                <div class="dir-label w">WEST</div>
+                <div class="dir-label e">EAST</div>
+                
+                <img id="displayImg" src="https://via.placeholder.com/1280x720?text=System+Ready+for+Inference" alt="Output Feed">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function execute() {
+        const file = document.getElementById('mediaInput').files[0];
+        if(!file) return alert("Please select a file.");
+
+        const btn = document.getElementById('runBtn');
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+
+        const fd = new FormData();
+        fd.append("file", file);
+
+        try {
+            const res = await fetch('/predict', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if(data.type === "image") {
+                document.getElementById('displayImg').src = "data:image/jpeg;base64," + data.image;
+                document.getElementById('mainCount').innerText = data.total;
+                document.getElementById('znw').innerText = data.zones["North-West"];
+                document.getElementById('zne').innerText = data.zones["North-East"];
+                document.getElementById('zsw').innerText = data.zones["South-West"];
+                document.getElementById('zse').innerText = data.zones["South-East"];
+            } else {
+                alert("Video received. Analyzing frames...");
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "RUN ANALYTICS";
+        }
+    }
+</script>
+</body>
+</html>
