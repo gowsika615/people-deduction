@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrowdSense — Zone Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070a0f;
+    --surface: #0d1117;
+    --surface2: #131920;
+    --border: #1e2a38;
+    --north: #38bdf8;
+    --south: #facc15;
+    --east: #4ade80;
+    --west: #f87171;
+    --center: #a78bfa;
+    --alert: #ef4444;
+    --warn: #f97316;
+    --ok: #22c55e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #38bdf8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID NOISE BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── TOPBAR ─────────────────────────────────── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: rgba(7,10,15,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(56,189,248,0.3);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .topbar-center {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+    box-shadow: 0 0 8px var(--ok);
+  }
+
+  @keyframes pulse-dot {
+    0%,100% { opacity:1; transform: scale(1); }
+    50% { opacity:0.5; transform: scale(0.7); }
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .upload-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .upload-btn:hover {
+    background: rgba(56,189,248,0.1);
+    box-shadow: 0 0 16px rgba(56,189,248,0.2);
+  }
+
+  /* ─── MAIN LAYOUT ────────────────────────────── */
+  .main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 260px 1fr 300px;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - 57px);
+  }
+
+  /* ─── LEFT SIDEBAR ───────────────────────────── */
+  .sidebar-left {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 20px 16px;
+    gap: 20px;
+  }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* Zone Cards */
+  .zone-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .zone-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .zone-card.north::before { background: var(--north); }
+  .zone-card.south::before { background: var(--south); }
+  .zone-card.east::before { background: var(--east); }
+  .zone-card.west::before { background: var(--west); }
+  .zone-card.center::before { background: var(--center); }
+
+  .zone-card:hover { border-color: rgba(56,189,248,0.3); transform: translateX(2px); }
+  .zone-card.active { border-color: rgba(56,189,248,0.4); background: var(--surface2); }
+
+  .zone-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .zone-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .zone-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .north .zone-dot { background: var(--north); box-shadow: 0 0 6px var(--north); }
+  .south .zone-dot { background: var(--south); box-shadow: 0 0 6px var(--south); }
+  .east .zone-dot { background: var(--east); box-shadow: 0 0 6px var(--east); }
+  .west .zone-dot { background: var(--west); box-shadow: 0 0 6px var(--west); }
+  .center .zone-dot { background: var(--center); box-shadow: 0 0 6px var(--center); }
+
+  .zone-count {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .north .zone-count { color: var(--north); }
+  .south .zone-count { color: var(--south); }
+  .east .zone-count { color: var(--east); }
+  .west .zone-count { color: var(--west); }
+  .center .zone-count { color: var(--center); }
+
+  .zone-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  .zone-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .zone-meta-val { font-size: 11px; color: var(--text); }
+
+  .density-bar {
+    margin-top: 10px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .density-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+
+  .north .density-fill { background: var(--north); }
+  .south .density-fill { background: var(--south); }
+  .east .density-fill { background: var(--east); }
+  .west .density-fill { background: var(--west); }
+  .center .density-fill { background: var(--center); }
+
+  /* ─── CENTER PANEL ───────────────────────────── */
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-cell {
+    padding: 16px 20px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-cell:last-child { border-right: none; }
+  .stat-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 10px; color: var(--muted); }
+  .stat-value.alert { color: var(--alert); }
+  .stat-value.warn { color: var(--warn); }
+  .stat-value.ok { color: var(--ok); }
+
+  /* Video Feed */
+  .video-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .video-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .toolbar-actions { display: flex; gap: 8px; }
+
+  .tb-btn {
+    padding: 5px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tb-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,0.08); }
+
+  .video-frame {
+    flex: 1;
+    position: relative;
+    background: #050709;
+    overflow: hidden;
+    margin: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  /* Zone overlay */
+  .zone-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: 28% 44% 28%;
+    grid-template-columns: 28% 44% 28%;
+  }
+
+  .zone-region {
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    position: relative;
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .zone-region:hover { z-index: 10; }
+
+  .zone-region.north-region {
+    grid-column: 1 / 4;
+    grid-row: 1;
+    background: rgba(56,189,248,0.06);
+    border-color: rgba(56,189,248,0.2);
+    color: var(--north);
+  }
+
+  .zone-region.south-region {
+    grid-column: 1 / 4;
+    grid-row: 3;
+    background: rgba(250,204,21,0.06);
+    border-color: rgba(250,204,21,0.2);
+    color: var(--south);
+  }
+
+  .zone-region.west-region {
+    grid-column: 1;
+    grid-row: 2;
+    background: rgba(248,113,113,0.06);
+    border-color: rgba(248,113,113,0.2);
+    color: var(--west);
+  }
+
+  .zone-region.east-region {
+    grid-column: 3;
+    grid-row: 2;
+    background: rgba(74,222,128,0.06);
+    border-color: rgba(74,222,128,0.2);
+    color: var(--east);
+  }
+
+  .zone-region.center-region {
+    grid-column: 2;
+    grid-row: 2;
+    background: rgba(167,139,250,0.06);
+    border-color: rgba(167,139,250,0.2);
+    color: var(--center);
+  }
+
+  .zone-region:hover {
+    background: rgba(56,189,248,0.12);
+  }
+
+  .zone-region.north-region:hover { background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.5); }
+  .zone-region.south-region:hover { background: rgba(250,204,21,0.15); border-color: rgba(250,204,21,0.5); }
+  .zone-region.west-region:hover { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.5); }
+  .zone-region.east-region:hover { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.5); }
+  .zone-region.center-region:hover { background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.5); }
+
+  .zone-label-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+
+  .zone-label-text { font-size: 10px; opacity: 0.7; letter-spacing: 2px; }
+  .zone-label-count { font-size: 24px; font-weight: 800; line-height: 1; }
+
+  /* People dots simulation */
+  .people-dot {
+    position: absolute;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: white;
+    opacity: 0.9;
+    animation: float-person 3s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(255,255,255,0.5);
+  }
+
+  @keyframes float-person {
+    0%,100% { transform: translate(0,0); }
+    33% { transform: translate(4px,-3px); }
+    66% { transform: translate(-3px,4px); }
+  }
+
+  /* Alert overlay */
+  .alert-flash {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: rgba(239,68,68,0.15);
+    border: 1px solid var(--alert);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 10px;
+    color: var(--alert);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: flash-alert 2s ease-in-out infinite;
+  }
+
+  @keyframes flash-alert {
+    0%,100% { opacity:1; }
+    50% { opacity:0.5; }
+  }
+
+  .compass {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(7,10,15,0.8);
+    display: grid;
+    place-items: center;
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  .compass-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .compass-dir {
+    position: absolute;
+    font-size: 8px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+  }
+
+  .compass-dir.n { top: 4px; left: 50%; transform: translateX(-50%); color: var(--north); }
+  .compass-dir.s { bottom: 4px; left: 50%; transform: translateX(-50%); color: var(--south); }
+  .compass-dir.e { right: 5px; top: 50%; transform: translateY(-50%); color: var(--east); }
+  .compass-dir.w { left: 5px; top: 50%; transform: translateY(-50%); color: var(--west); }
+
+  /* Timeline */
+  .timeline {
+    height: 80px;
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .timeline-bar {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+  }
+
+  .timeline-seg {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    min-height: 4px;
+  }
+
+  .timeline-seg:hover { opacity: 0.7; }
+
+  /* ─── RIGHT SIDEBAR ──────────────────────────── */
+  .sidebar-right {
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .panel-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Anomaly Feed */
+  .anomaly-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .anomaly-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--surface);
+    animation: slide-in 0.3s ease;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  @keyframes slide-in {
+    from { opacity:0; transform: translateX(10px); }
+    to { opacity:1; transform: translateX(0); }
+  }
+
+  .anomaly-item:hover { border-color: var(--border); }
+  .anomaly-item.critical { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+  .anomaly-item.warning { border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.05); }
+  .anomaly-item.info { border-color: rgba(56,189,248,0.2); }
+
+  .anomaly-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .critical .anomaly-icon { background: rgba(239,68,68,0.15); }
+  .warning .anomaly-icon { background: rgba(249,115,22,0.15); }
+  .info .anomaly-icon { background: rgba(56,189,248,0.1); }
+
+  .anomaly-body { flex: 1; min-width: 0; }
+  .anomaly-title { font-size: 11px; font-weight: 500; color: var(--text); margin-bottom: 2px; line-height: 1.3; }
+  .anomaly-meta { font-size: 9px; color: var(--muted); display: flex; gap: 8px; }
+  .anomaly-zone { padding: 1px 6px; border-radius: 3px; font-size: 9px; }
+
+  /* IN/OUT Log */
+  .log-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .log-table th { color: var(--muted); text-align: left; padding: 4px 6px; font-weight: 400; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .log-table td { padding: 6px 6px; border-bottom: 1px solid rgba(30,42,56,0.5); vertical-align: middle; }
+  .log-table tr:hover td { background: var(--surface); }
+
+  .pid-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-size: 9px;
+  }
+
+  .time-val { color: var(--accent); font-size: 10px; }
+  .dwell-val { color: var(--muted); font-size: 9px; }
+
+  /* Velocity panel */
+  .velocity-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .vel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .vel-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .vel-value { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; }
+  .vel-unit { font-size: 9px; color: var(--muted); }
+  .vel-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .vel-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+
+  /* Flow diagram */
+  .flow-diagram {
+    display: grid;
+    grid-template-areas:
+      ". north ."
+      "west center east"
+      ". south .";
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .flow-node {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    text-align: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .flow-node:hover { transform: scale(1.05); }
+  .flow-node.fn { grid-area: north; border-color: rgba(56,189,248,0.3); color: var(--north); }
+  .flow-node.fs { grid-area: south; border-color: rgba(250,204,21,0.3); color: var(--south); }
+  .flow-node.fe { grid-area: east; border-color: rgba(74,222,128,0.3); color: var(--east); }
+  .flow-node.fw { grid-area: west; border-color: rgba(248,113,113,0.3); color: var(--west); }
+  .flow-node.fc { grid-area: center; border-color: rgba(167,139,250,0.3); color: var(--center); }
+
+  .flow-count { font-size: 16px; font-weight: 800; display: block; }
+  .flow-label { font-size: 8px; letter-spacing: 1.5px; opacity: 0.7; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Upload overlay */
+  .upload-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(7,10,15,0.92);
+    z-index: 200;
+    place-items: center;
+    backdrop-filter: blur(8px);
+  }
+
+  .upload-overlay.show { display: grid; }
+
+  .upload-modal {
+    width: 480px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .upload-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+
+  .close-btn:hover { color: var(--text); }
+
+  .upload-drop {
+    margin: 24px;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .upload-drop:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(56,189,248,0.04);
+  }
+
+  .upload-icon { font-size: 32px; margin-bottom: 10px; }
+  .upload-hint { font-size: 10px; margin-top: 6px; color: var(--muted); }
+
+  .modal-actions {
+    padding: 16px 24px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-primary {
+    padding: 8px 20px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: var(--bg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-ghost {
+    padding: 8px 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+  /* Scrolling ticker */
+  .ticker {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+
+  .ticker-label {
+    padding: 0 14px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--alert);
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: rgba(239,68,68,0.08);
+  }
+
+  .ticker-track {
+    display: flex;
+    animation: ticker-scroll 30s linear infinite;
+    gap: 40px;
+    padding: 0 20px;
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .ticker-event { display: flex; gap: 8px; align-items: center; }
+  .ticker-zone { font-weight: 500; }
+
+  /* Tab nav */
+  .tab-nav {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    padding: 10px 14px;
+    font-size: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    Crowd<span>Sense</span>
+  </div>
+  <div class="topbar-center">
+    <div class="live-dot"></div>
+    LIVE · Session #2024-0149 · 00:47:32
+  </div>
+  <div class="topbar-right">
+    <span id="clock" style="font-size:12px; color: var(--text);"></span>
+    <button class="upload-btn" onclick="document.getElementById('uploadOverlay').classList.add('show')">
+      ⬆ Upload Feed
+    </button>
+  </div>
+</header>
+
+<!-- ALERT TICKER -->
+<div class="ticker">
+  <div class="ticker-label">⚠ ALERTS</div>
+  <div class="ticker-track" id="tickerTrack">
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--south)">SOUTH</span> Density threshold exceeded · 0.07 / 0.05</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--east)">EAST</span> Person #047 loitering &gt;3 min</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--north)">NORTH</span> Running detected · Person #031 · 68 px/s</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--center)">CENTER</span> Crowd surge: 4 → 14 persons in 8s</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--west)">WEST</span> Re-entry alert · Person #012 within 22s</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--south)">SOUTH</span> Density threshold exceeded · 0.07 / 0.05</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--east)">EAST</span> Person #047 loitering &gt;3 min</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--north)">NORTH</span> Running detected · Person #031 · 68 px/s</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--center)">CENTER</span> Crowd surge: 4 → 14 persons in 8s</span>
+    <span class="ticker-event"><span class="ticker-zone" style="color:var(--west)">WEST</span> Re-entry alert · Person #012 within 22s</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar-left">
+    <div>
+      <div class="section-label">Directional Zones</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+
+        <div class="zone-card north active" onclick="selectZone('north', this)">
+          <div class="zone-header">
+            <div class="zone-name"><div class="zone-dot"></div> N · NORTH</div>
+            <div class="zone-count" id="cnt-north">12</div>
+          </div>
+          <div class="zone-meta">
+            <div class="zone-meta-item"><span>VELOCITY</span><span class="zone-meta-val" id="vel-north">18.4 px/s</span></div>
+            <div class="zone-meta-item"><span>DENSITY</span><span class="zone-meta-val" id="den-north">0.038</span></div>
+            <div class="zone-meta-item"><span>IN</span><span class="zone-meta-val">45</span></div>
+            <div class="zone-meta-item"><span>OUT</span><span class="zone-meta-val">38</span></div>
+          </div>
+          <div class="density-bar"><div class="density-fill" style="width:76%"></div></div>
+        </div>
+
+        <div class="zone-card south" onclick="selectZone('south', this)">
+          <div class="zone-header">
+            <div class="zone-name"><div class="zone-dot"></div> S · SOUTH</div>
+            <div class="zone-count" id="cnt-south">8</div>
+          </div>
+          <div class="zone-meta">
+            <div class="zone-meta-item"><span>VELOCITY</span><span class="zone-meta-val" id="vel-south">45.2 px/s</span></div>
+            <div class="zone-meta-item"><span>DENSITY</span><span class="zone-meta-val" id="den-south">0.071</span></div>
+            <div class="zone-meta-item"><span>IN</span><span class="zone-meta-val">33</span></div>
+            <div class="zone-meta-item"><span>OUT</span><span class="zone-meta-val">29</span></div>
+          </div>
+          <div class="density-bar"><div class="density-fill" style="width:142%; background: var(--alert);"></div></div>
+        </div>
+
+        <div class="zone-card east" onclick="selectZone('east', this)">
+          <div class="zone-header">
+            <div class="zone-name"><div class="zone-dot"></div> E · EAST</div>
+            <div class="zone-count" id="cnt-east">17</div>
+          </div>
+          <div class="zone-meta">
+            <div class="zone-meta-item"><span>VELOCITY</span><span class="zone-meta-val" id="vel-east">8.1 px/s</span></div>
+            <div class="zone-meta-item"><span>DENSITY</span><span class="zone-meta-val" id="den-east">0.040</span></div>
+            <div class="zone-meta-item"><span>IN</span><span class="zone-meta-val">67</span></div>
+            <div class="zone-meta-item"><span>OUT</span><span class="zone-meta-val">51</span></div>
+          </div>
+          <div class="density-bar"><div class="density-fill" style="width:100%"></div></div>
+        </div>
+
+        <div class="zone-card west" onclick="selectZone('west', this)">
+          <div class="zone-header">
+            <div class="zone-name"><div class="zone-dot"></div> W · WEST</div>
+            <div class="zone-count" id="cnt-west">5</div>
+          </div>
+          <div class="zone-meta">
+            <div class="zone-meta-item"><span>VELOCITY</span><span class="zone-meta-val" id="vel-west">20.3 px/s</span></div>
+            <div class="zone-meta-item"><span>DENSITY</span><span class="zone-meta-val" id="den-west">0.021</span></div>
+            <div class="zone-meta-item"><span>IN</span><span class="zone-meta-val">22</span></div>
+            <div class="zone-meta-item"><span>OUT</span><span class="zone-meta-val">17</span></div>
+          </div>
+          <div class="density-bar"><div class="density-fill" style="width:53%"></div></div>
+        </div>
+
+        <div class="zone-card center" onclick="selectZone('center', this)">
+          <div class="zone-header">
+            <div class="zone-name"><div class="zone-dot"></div> C · CENTER</div>
+            <div class="zone-count" id="cnt-center">21</div>
+          </div>
+          <div class="zone-meta">
+            <div class="zone-meta-item"><span>VELOCITY</span><span class="zone-meta-val" id="vel-center">14.7 px/s</span></div>
+            <div class="zone-meta-item"><span>DENSITY</span><span class="zone-meta-val" id="den-center">0.029</span></div>
+            <div class="zone-meta-item"><span>IN</span><span class="zone-meta-val">91</span></div>
+            <div class="zone-meta-item"><span>OUT</span><span class="zone-meta-val">70</span></div>
+          </div>
+          <div class="density-bar"><div class="density-fill" style="width:58%"></div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Zone Flow Diagram -->
+    <div>
+      <div class="section-label">Zone Flow</div>
+      <div class="flow-diagram">
+        <div class="flow-node fn">
+          <span class="flow-count">12</span>
+          <span class="flow-label">NORTH</span>
+        </div>
+        <div class="flow-node fw">
+          <span class="flow-count">5</span>
+          <span class="flow-label">WEST</span>
+        </div>
+        <div class="flow-node fc">
+          <span class="flow-count">21</span>
+          <span class="flow-label">CENTER</span>
+        </div>
+        <div class="flow-node fe">
+          <span class="flow-count">17</span>
+          <span class="flow-label">EAST</span>
+        </div>
+        <div class="flow-node fs">
+          <span class="flow-count">8</span>
+          <span class="flow-label">SOUTH</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER PANEL -->
+  <main class="center-panel">
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-cell">
+        <div class="stat-label">Total People</div>
+        <div class="stat-value" id="total-count">63</div>
+        <div class="stat-sub">↑ 4 from last min</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Active Anomalies</div>
+        <div class="stat-value alert" id="total-anomalies">7</div>
+        <div class="stat-sub">3 critical · 4 warning</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Avg Velocity</div>
+        <div class="stat-value warn">21.3</div>
+        <div class="stat-sub">px/s · ↑ above baseline</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Session IN / OUT</div>
+        <div class="stat-value ok">258 / 205</div>
+        <div class="stat-sub">Net +53 occupancy</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="video-toolbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <span>CAM_01 · 1920×1080 · 30fps</span>
+        <span style="color:var(--ok)">● PROCESSING</span>
+      </div>
+      <div class="toolbar-actions">
+        <button class="tb-btn active" onclick="toggleView(this,'overlay')">ZONES</button>
+        <button class="tb-btn" onclick="toggleView(this,'bbox')">BBOX</button>
+        <button class="tb-btn" onclick="toggleView(this,'heatmap')">HEATMAP</button>
+        <button class="tb-btn" onclick="toggleView(this,'velocity')">VELOCITY</button>
+        <button class="tb-btn" onclick="toggleView(this,'ids')">PERSON IDs</button>
+      </div>
+    </div>
+
+    <!-- Video Frame -->
+    <div class="video-area">
+      <div class="video-frame" id="videoFrame">
+        <!-- Zone Overlay -->
+        <div class="zone-overlay" id="zoneOverlay">
+          <div class="zone-region north-region" title="North Zone">
+            <div class="zone-label-badge">
+              <span class="zone-label-text">NORTH</span>
+              <span class="zone-label-count" style="color:var(--north)">12</span>
+            </div>
+          </div>
+          <div class="zone-region west-region" title="West Zone">
+            <div class="zone-label-badge">
+              <span class="zone-label-text">WEST</span>
+              <span class="zone-label-count" style="color:var(--west)">5</span>
+            </div>
+          </div>
+          <div class="zone-region center-region" title="Center Zone">
+            <div class="zone-label-badge">
+              <span class="zone-label-text">CENTER</span>
+              <span class="zone-label-count" style="color:var(--center)">21</span>
+            </div>
+          </div>
+          <div class="zone-region east-region" title="East Zone">
+            <div class="zone-label-badge">
+              <span class="zone-label-text">EAST</span>
+              <span class="zone-label-count" style="color:var(--east)">17</span>
+            </div>
+          </div>
+          <div class="zone-region south-region" title="South Zone">
+            <div class="zone-label-badge">
+              <span class="zone-label-text">SOUTH</span>
+              <span class="zone-label-count" style="color:var(--south)">8</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulated people dots -->
+        <div id="peopleDots"></div>
+
+        <!-- Alert overlay -->
+        <div class="alert-flash" id="alertFlash">⚠ SOUTH ZONE DENSITY CRITICAL</div>
+
+        <!-- Compass -->
+        <div class="compass">
+          <div class="compass-inner">
+            <div class="compass-dir n">N</div>
+            <div class="compass-dir s">S</div>
+            <div class="compass-dir e">E</div>
+            <div class="compass-dir w">W</div>
+          </div>
+        </div>
+
+        <!-- Frame timestamp -->
+        <div style="position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);background:rgba(7,10,15,0.7);padding:4px 8px;border-radius:4px;">
+          FRAME 84,231 · 00:46:47.12
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="timeline">
+        <div class="section-label" style="margin:0;">Activity Timeline</div>
+        <div class="timeline-bar" id="timelineBar"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- RIGHT SIDEBAR -->
+  <aside class="sidebar-right">
+
+    <div class="tab-nav">
+      <div class="tab active" onclick="switchTab('anomalies', this)">Anomalies</div>
+      <div class="tab" onclick="switchTab('inout', this)">IN/OUT Log</div>
+      <div class="tab" onclick="switchTab('velocity', this)">Velocity</div>
+    </div>
+
+    <!-- ANOMALIES TAB -->
+    <div class="tab-content active" id="tab-anomalies">
+      <div class="panel-section">
+        <div class="section-label">Live Anomaly Feed</div>
+        <div class="anomaly-feed" id="anomalyFeed">
+
+          <div class="anomaly-item critical">
+            <div class="anomaly-icon">🔴</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">South Zone density critical</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(250,204,21,0.1);color:var(--south)">SOUTH</span>
+                <span>0.071 / threshold 0.05</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">2 min ago</div>
+            </div>
+          </div>
+
+          <div class="anomaly-item critical">
+            <div class="anomaly-icon">🏃</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">Running detected · Person #031</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(56,189,248,0.1);color:var(--north)">NORTH</span>
+                <span>68 px/s · limit 45</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">3 min ago</div>
+            </div>
+          </div>
+
+          <div class="anomaly-item warning">
+            <div class="anomaly-icon">⏱</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">Loitering · Person #047</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(74,222,128,0.1);color:var(--east)">EAST</span>
+                <span>Dwell 3m 22s / limit 3m</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">5 min ago</div>
+            </div>
+          </div>
+
+          <div class="anomaly-item warning">
+            <div class="anomaly-icon">📈</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">Crowd surge detected</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(167,139,250,0.1);color:var(--center)">CENTER</span>
+                <span>4 → 14 in 8s</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">8 min ago</div>
+            </div>
+          </div>
+
+          <div class="anomaly-item warning">
+            <div class="anomaly-icon">🔁</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">Re-entry · Person #012</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(248,113,113,0.1);color:var(--west)">WEST</span>
+                <span>Exit → Re-entry in 22s</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">12 min ago</div>
+            </div>
+          </div>
+
+          <div class="anomaly-item info">
+            <div class="anomaly-icon">↔</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">Counter-flow · Person #059</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(56,189,248,0.1);color:var(--north)">NORTH</span>
+                <span>Moving S while crowd flows N</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">15 min ago</div>
+            </div>
+          </div>
+
+          <div class="anomaly-item info">
+            <div class="anomaly-icon">⚡</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title">Erratic movement · Person #078</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-zone" style="background:rgba(167,139,250,0.1);color:var(--center)">CENTER</span>
+                <span>Rapid direction changes</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">18 min ago</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- IN/OUT LOG TAB -->
+    <div class="tab-content" id="tab-inout">
+      <div class="panel-section" style="padding:12px 8px;">
+        <div class="section-label" style="padding:0 8px;margin-bottom:8px;">Zone IN/OUT Events</div>
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>PID</th>
+              <th>ZONE</th>
+              <th>IN</th>
+              <th>OUT</th>
+              <th>DWELL</th>
+            </tr>
+          </thead>
+          <tbody id="logBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VELOCITY TAB -->
+    <div class="tab-content" id="tab-velocity">
+      <div class="panel-section">
+        <div class="section-label">Head Velocity Per Zone</div>
+        <div class="velocity-grid">
+          <div class="vel-card">
+            <div class="vel-label">North</div>
+            <div class="vel-value" style="color:var(--north)">18.4</div>
+            <div class="vel-unit">px/s avg</div>
+            <div class="vel-bar"><div class="vel-fill" style="width:41%;background:var(--north)"></div></div>
+          </div>
+          <div class="vel-card">
+            <div class="vel-label">South</div>
+            <div class="vel-value" style="color:var(--alert)">45.2</div>
+            <div class="vel-unit">px/s avg</div>
+            <div class="vel-bar"><div class="vel-fill" style="width:100%;background:var(--alert)"></div></div>
+          </div>
+          <div class="vel-card">
+            <div class="vel-label">East</div>
+            <div class="vel-value" style="color:var(--east)">8.1</div>
+            <div class="vel-unit">px/s avg</div>
+            <div class="vel-bar"><div class="vel-fill" style="width:18%;background:var(--east)"></div></div>
+          </div>
+          <div class="vel-card">
+            <div class="vel-label">West</div>
+            <div class="vel-value" style="color:var(--west)">20.3</div>
+            <div class="vel-unit">px/s avg</div>
+            <div class="vel-bar"><div class="vel-fill" style="width:45%;background:var(--west)"></div></div>
+          </div>
+          <div class="vel-card" style="grid-column:1/-1">
+            <div class="vel-label">Center</div>
+            <div class="vel-value" style="color:var(--center)">14.7</div>
+            <div class="vel-unit">px/s avg · Normal movement</div>
+            <div class="vel-bar"><div class="vel-fill" style="width:33%;background:var(--center)"></div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div class="section-label">Velocity Thresholds</div>
+          <div style="font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span>🟢 Normal</span><span style="color:var(--text)">&lt; 25 px/s</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span>🟡 Elevated</span><span style="color:var(--text)">25–45 px/s</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span>🔴 Running</span><span style="color:var(--text)">&gt; 45 px/s</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span>⚪ Loitering</span><span style="color:var(--text)">&lt; 3 px/s for &gt;3min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- UPLOAD MODAL -->
+<div class="upload-overlay" id="uploadOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="upload-modal">
+    <div class="upload-modal-header">
+      Upload Video / Image Feed
+      <button class="close-btn" onclick="document.getElementById('uploadOverlay').classList.remove('show')">✕</button>
+    </div>
+    <div class="upload-drop" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-icon">📹</div>
+      <div>Drop video or image file here</div>
+      <div class="upload-hint">Supports MP4, AVI, MOV, JPG, PNG · Max 2GB</div>
+      <input type="file" id="fileInput" style="display:none" accept="video/*,image/*" onchange="handleFileUpload(event)">
+    </div>
+    <div style="padding:0 24px 16px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Zone Configuration</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;">
+        <label style="display:flex;flex-direction:column;gap:4px;color:var(--muted)">
+          North Zone Height %
+          <input type="range" min="10" max="45" value="28" style="accent-color:var(--north)">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;color:var(--muted)">
+          South Zone Height %
+          <input type="range" min="10" max="45" value="28" style="accent-color:var(--south)">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;color:var(--muted)">
+          West Zone Width %
+          <input type="range" min="10" max="45" value="28" style="accent-color:var(--west)">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;color:var(--muted)">
+          East Zone Width %
+          <input type="range" min="10" max="45" value="28" style="accent-color:var(--east)">
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted)">
+        <input type="checkbox" checked id="centerToggle" style="accent-color:var(--center)">
+        <label for="centerToggle">Enable Center Zone</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="document.getElementById('uploadOverlay').classList.remove('show')">Cancel</button>
+      <button class="btn-primary" onclick="startAnalysis()">Start Analysis →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CLOCK ──────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-US', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── ZONE SELECTION ──────────────────────────────
+function selectZone(zone, el) {
+  document.querySelectorAll('.zone-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── TAB SWITCHING ───────────────────────────────
+function switchTab(tabId, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+// ─── TOOLBAR TOGGLE ──────────────────────────────
+function toggleView(el, mode) {
+  el.classList.toggle('active');
+}
+
+// ─── PEOPLE DOTS SIMULATION ──────────────────────
+const zones = {
+  north:  { top:'5%',  left:'10%', w:'80%', h:'22%',  color:'rgba(56,189,248,0.8)',  count:12 },
+  south:  { top:'73%', left:'10%', w:'80%', h:'22%',  color:'rgba(250,204,21,0.8)',  count:8 },
+  west:   { top:'28%', left:'2%',  w:'25%', h:'42%',  color:'rgba(248,113,113,0.8)', count:5 },
+  east:   { top:'28%', left:'73%', w:'25%', h:'42%',  color:'rgba(74,222,128,0.8)',  count:17 },
+  center: { top:'28%', left:'28%', w:'44%', h:'42%',  color:'rgba(167,139,250,0.8)', count:21 }
+};
+
+function randRange(min, max) { return Math.random() * (max - min) + min; }
+
+function spawnDots() {
+  const container = document.getElementById('peopleDots');
+  container.innerHTML = '';
+  for (const [name, z] of Object.entries(zones)) {
+    for (let i = 0; i < z.count; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'people-dot';
+      const topPct = parseFloat(z.top) + randRange(2, parseFloat(z.h) - 4);
+      const leftPct = parseFloat(z.left) + randRange(2, parseFloat(z.w) - 4);
+      dot.style.cssText = `
+        top: ${topPct}%;
+        left: ${leftPct}%;
+        background: ${z.color};
+        animation-delay: ${randRange(0, 3)}s;
+        animation-duration: ${randRange(2, 5)}s;
+      `;
+      container.appendChild(dot);
+    }
+  }
+}
+
+spawnDots();
+setInterval(spawnDots, 6000);
+
+// ─── TIMELINE ────────────────────────────────────
+function buildTimeline() {
+  const bar = document.getElementById('timelineBar');
+  const colors = ['#38bdf8','#facc15','#4ade80','#f87171','#a78bfa','#ef4444'];
+  for (let i = 0; i < 60; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'timeline-seg';
+    const h = 20 + Math.random() * 80;
+    const isAlert = Math.random() < 0.1;
+    seg.style.cssText = `height:${h}%; background:${isAlert ? '#ef4444' : colors[Math.floor(Math.random()*5)]};opacity:${isAlert?1:0.4}`;
+    bar.appendChild(seg);
+  }
+}
+buildTimeline();
+
+// ─── IN/OUT LOG ──────────────────────────────────
+const logData = [
+  {pid:'#031', zone:'NORTH', zoneColor:'var(--north)', bg:'rgba(56,189,248,0.1)', inT:'00:44:12', outT:'—', dwell:'3m 21s'},
+  {pid:'#047', zone:'EAST',  zoneColor:'var(--east)',  bg:'rgba(74,222,128,0.1)', inT:'00:43:01', outT:'—',       dwell:'4m 32s'},
+  {pid:'#012', zone:'WEST',  zoneColor:'var(--west)',  bg:'rgba(248,113,113,0.1)',inT:'00:45:18', outT:'00:45:40', dwell:'22s'},
+  {pid:'#059', zone:'NORTH', zoneColor:'var(--north)', bg:'rgba(56,189,248,0.1)', inT:'00:42:30', outT:'00:45:55', dwell:'3m 25s'},
+  {pid:'#078', zone:'CENTER',zoneColor:'var(--center)',bg:'rgba(167,139,250,0.1)',inT:'00:41:10', outT:'00:44:52', dwell:'3m 42s'},
+  {pid:'#091', zone:'SOUTH', zoneColor:'var(--south)', bg:'rgba(250,204,21,0.1)', inT:'00:40:05', outT:'00:43:18', dwell:'3m 13s'},
+  {pid:'#014', zone:'EAST',  zoneColor:'var(--east)',  bg:'rgba(74,222,128,0.1)', inT:'00:39:22', outT:'00:42:10', dwell:'2m 48s'},
+  {pid:'#033', zone:'WEST',  zoneColor:'var(--west)',  bg:'rgba(248,113,113,0.1)',inT:'00:38:47', outT:'00:41:30', dwell:'2m 43s'},
+  {pid:'#055', zone:'CENTER',zoneColor:'var(--center)',bg:'rgba(167,139,250,0.1)',inT:'00:37:11', outT:'00:40:05', dwell:'2m 54s'},
+  {pid:'#072', zone:'SOUTH', zoneColor:'var(--south)', bg:'rgba(250,204,21,0.1)', inT:'00:36:50', outT:'00:39:22', dwell:'2m 32s'},
+];
+
+function buildLog() {
+  const tbody = document.getElementById('logBody');
+  logData.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="pid-badge">${row.pid}</span></td>
+      <td><span class="anomaly-zone" style="background:${row.bg};color:${row.zoneColor}">${row.zone}</span></td>
+      <td><span class="time-val">${row.inT}</span></td>
+      <td><span class="time-val">${row.outT}</span></td>
+      <td><span class="dwell-val">${row.dwell}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+buildLog();
+
+// ─── LIVE DATA SIMULATION ────────────────────────
+function updateLiveData() {
+  const zoneIds = ['north','south','east','west','center'];
+  const counts  = { north:12, south:8, east:17, west:5, center:21 };
+
+  zoneIds.forEach(z => {
+    const delta = Math.floor(Math.random() * 3) - 1;
+    counts[z] = Math.max(0, counts[z] + delta);
+    const el = document.getElementById('cnt-' + z);
+    if (el) el.textContent = counts[z];
+  });
+
+  const total = Object.values(counts).reduce((a,b) => a+b, 0);
+  document.getElementById('total-count').textContent = total;
+}
+
+setInterval(updateLiveData, 3000);
+
+// ─── UPLOAD HANDLER ──────────────────────────────
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const label = document.querySelector('.upload-drop div:nth-child(2)');
+  label.textContent = `✓ ${file.name} ready`;
+}
+
+function startAnalysis() {
+  document.getElementById('uploadOverlay').classList.remove('show');
+}
+</script>
+</body>
+</html>

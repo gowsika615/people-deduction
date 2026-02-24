@@ -1,110 +1,807 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>AI-VISION | Precision Analytics</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <style>
-        body { background: #ffffff; color: #1d1d1f; font-family: -apple-system, sans-serif; }
-        .main-container { max-width: 1200px; margin: 40px auto; }
-        .data-card { border-radius: 12px; border: 1px solid #e5e5e5; padding: 20px; background: #fff; }
-        
-        /* FEATURE: BIG VIEWPORT */
-        #viewport { position: relative; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid #ddd; }
-        #displayImg { width: 100%; height: auto; display: block; }
-        
-        /* FEATURE: NESW DIRECTIONS */
-        .dir-label { position: absolute; background: rgba(0,0,0,0.8); color: #fff; padding: 2px 10px; font-size: 11px; font-weight: bold; z-index: 10; border-radius: 4px; }
-        .n { top: 10px; left: 50%; transform: translateX(-50%); }
-        .s { bottom: 10px; left: 50%; transform: translateX(-50%); }
-        .w { left: 10px; top: 50%; transform: translateY(-50%); }
-        .e { right: 10px; top: 50%; transform: translateY(-50%); }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crowd Vision Analytics</title>
+  <meta name="description" content="Real-time directional zone crowd analytics powered by YOLOv8 and FastAPI">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .btn-scan { background: #0071e3; color: #fff; border: none; border-radius: 8px; padding: 12px; font-weight: 600; width: 100%; }
-        .count-display { font-size: 3.5rem; font-weight: 700; color: #0071e3; margin: 10px 0; }
-        .zone-item { border-bottom: 1px solid #f0f0f0; padding: 8px 0; font-size: 14px; }
-    </style>
+    :root {
+      --bg:        #0d1117;
+      --bg2:       #161b22;
+      --bg3:       #21262d;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --accent:    #58a6ff;
+
+      --north:  #3b82f6;
+      --south:  #f59e0b;
+      --east:   #22c55e;
+      --west:   #ef4444;
+      --center: #a78bfa;
+
+      --danger:  #f85149;
+      --warn:    #e3b341;
+      --ok:      #3fb950;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; overflow: hidden; }
+
+    header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; flex-shrink: 0;
+    }
+    .logo { font-weight: 700; font-size: 16px; letter-spacing: .5px; color: var(--text); }
+    .logo span { color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .badge-live {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(63,185,80,.12); border: 1px solid var(--ok);
+      color: var(--ok); font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px;
+    }
+    .badge-live .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok); animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .3; }
+    }
+    #sessionTimer { color: var(--muted); font-size: 13px; }
+
+    .body { display: flex; overflow: hidden; height: 100%; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    aside {
+      width: 320px; min-width: 320px;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600; letter-spacing: .8px;
+      color: var(--muted); text-transform: uppercase; margin-bottom: 12px;
+    }
+
+    /* Upload */
+    .drop-zone {
+      border: 1.5px dashed var(--border); border-radius: 8px;
+      padding: 22px 16px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: rgba(88,166,255,.05); }
+    .drop-zone p { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    #fileInput { display: none; }
+
+    .run-btn {
+      width: 100%; margin-top: 10px; padding: 10px;
+      background: var(--accent); color: #0d1117;
+      border: none; border-radius: 8px; font-weight: 700;
+      font-size: 13px; cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+    .run-btn:hover { opacity: .88; }
+    .run-btn:active { transform: scale(.98); }
+    .run-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Zone Config */
+    .zone-slider-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; gap: 8px;
+    }
+    .zone-slug {
+      font-size: 11px; font-weight: 600; min-width: 52px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .zone-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    input[type=range] {
+      flex: 1; accent-color: var(--accent); height: 4px;
+    }
+    .slider-val { font-size: 11px; color: var(--muted); min-width: 32px; text-align: right; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .toggle-label { font-size: 12px; color: var(--muted); }
+    .toggle {
+      position: relative; width: 32px; height: 18px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .track {
+      position: absolute; inset: 0;
+      background: var(--border); border-radius: 20px;
+      cursor: pointer; transition: background .2s;
+    }
+    .toggle input:checked + .track { background: var(--accent); }
+    .toggle .track::after {
+      content: ''; position: absolute;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; top: 3px; left: 3px;
+      transition: transform .2s;
+    }
+    .toggle input:checked + .track::after { transform: translateX(14px); }
+
+    /* Zone stats table */
+    .zone-table { width: 100%; border-collapse: collapse; }
+    .zone-table th {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; padding: 4px 6px; text-align: right;
+    }
+    .zone-table th:first-child { text-align: left; }
+    .zone-table td {
+      padding: 6px 6px; border-top: 1px solid var(--border);
+      font-size: 13px; text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .zone-table td:first-child { text-align: left; font-weight: 500; }
+    .status-ok   { color: var(--ok); }
+    .status-warn { color: var(--warn); }
+    .status-bad  { color: var(--danger); }
+
+    /* Anomaly log */
+    .anomaly-log {
+      max-height: 220px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .anomaly-item {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 10px;
+      font-size: 11px; line-height: 1.5;
+    }
+    .anomaly-item .a-type {
+      font-weight: 700; font-size: 11px; margin-bottom: 2px;
+    }
+    .anomaly-item .a-detail { color: var(--muted); }
+    .a-Running, .a-Overcrowding, .a-Crowd-Surge { color: var(--danger); }
+    .a-Loitering, .a-Stationary, .a-Zone-Abandoned { color: var(--warn); }
+    .a-Rapid-Zone-Switch { color: var(--center); }
+    .empty-state { color: var(--muted); font-size: 12px; text-align: center; padding: 20px 0; }
+
+    /* ── Main area ───────────────────────────────────────────────────── */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Metric bar */
+    .metric-bar {
+      display: flex; gap: 12px; padding: 12px 16px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .metric-card {
+      flex: 1; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .metric-value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+
+    /* Frame area */
+    .frame-area {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
+    }
+    .viewport-wrap {
+      flex: 1; position: relative; background: #000;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    #displayImg {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; display: block;
+    }
+    #zoneCanvas {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%; pointer-events: none;
+    }
+    .dir-badge {
+      position: absolute; background: rgba(13,17,23,.75);
+      backdrop-filter: blur(4px);
+      border: 1px solid var(--border);
+      color: var(--text); padding: 3px 10px;
+      font-size: 10px; font-weight: 700; border-radius: 20px;
+      letter-spacing: .5px; pointer-events: none; z-index: 5;
+    }
+    .dir-N { top: 10px; left: 50%; transform: translateX(-50%); border-color: var(--north); color: var(--north); }
+    .dir-S { bottom: 10px; left: 50%; transform: translateX(-50%); border-color: var(--south); color: var(--south); }
+    .dir-W { left: 10px; top: 50%; transform: translateY(-50%); border-color: var(--west); color: var(--west); }
+    .dir-E { right: 10px; top: 50%; transform: translateY(-50%); border-color: var(--east); color: var(--east); }
+
+    /* Bottom panel */
+    .bottom-panel {
+      height: 200px; border-top: 1px solid var(--border);
+      display: flex; gap: 0; flex-shrink: 0; overflow: hidden;
+    }
+    .flow-section {
+      flex: 1; padding: 16px;
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+    }
+    .flow-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+    #flowDiagram { flex: 1; }
+
+    .velocity-section {
+      width: 280px; padding: 16px; overflow-y: auto;
+    }
+    .velocity-section table { width: 100%; border-collapse: collapse; }
+    .velocity-section th {
+      font-size: 10px; color: var(--muted); text-transform: uppercase;
+      padding: 0 6px 6px; text-align: right;
+    }
+    .velocity-section th:first-child { text-align: left; }
+    .velocity-section td {
+      padding: 5px 6px; border-top: 1px solid var(--border);
+      font-size: 12px; text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .velocity-section td:first-child { text-align: left; }
+
+    .export-btn {
+      padding: 6px 14px; background: transparent;
+      border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; font-size: 12px; cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Progress bar for video */
+    .progress-wrap { height: 3px; background: var(--bg3); }
+    .progress-bar  { height: 100%; width: 0%; background: var(--accent); transition: width .3s; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
 </head>
 <body>
+<div class="app">
 
-<div class="main-container px-3">
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h1 class="fw-bold">Crowd Vision Analytics</h1>
-            <p class="text-muted">High-accuracy neural detection for security and flow monitoring.</p>
-        </div>
+  <!-- Header -->
+  <header>
+    <div class="logo">Crowd<span>Vision</span> Analytics</div>
+    <div class="header-right">
+      <div class="badge-live"><div class="dot"></div> LIVE</div>
+      <span id="sessionTimer">00:00</span>
     </div>
+  </header>
 
-    <div class="row g-4">
-        <div class="col-lg-4">
-            <div class="data-card mb-4">
-                <h6 class="fw-bold mb-3">Media Upload</h6>
-                <input type="file" id="mediaInput" class="form-control mb-3" accept="image/*,video/*">
-                <button onclick="execute()" id="runBtn" class="btn-scan">RUN ANALYTICS</button>
-            </div>
+  <div class="body">
+    <!-- ── Sidebar ─────────────────────────────────────────────── -->
+    <aside>
 
-            <div class="data-card">
-                <h6 class="fw-bold mb-3">Zone Breakdown</h6>
-                <div id="zoneData">
-                    <div class="zone-item d-flex justify-content-between">North-West: <span id="znw" class="fw-bold text-primary">0</span></div>
-                    <div class="zone-item d-flex justify-content-between">North-East: <span id="zne" class="fw-bold text-primary">0</span></div>
-                    <div class="zone-item d-flex justify-content-between">South-West: <span id="zsw" class="fw-bold text-primary">0</span></div>
-                    <div class="zone-item d-flex justify-content-between border-0">South-East: <span id="zse" class="fw-bold text-primary">0</span></div>
-                </div>
-            </div>
+      <!-- Upload -->
+      <div class="card">
+        <div class="card-title">Media Input</div>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+          </svg>
+          <p id="fileName">Drop image or video, or click to browse</p>
+        </div>
+        <input type="file" id="fileInput" accept="image/*,video/*">
+        <button class="run-btn" id="runBtn" onclick="runAnalysis()">▶ RUN ANALYTICS</button>
+        <div class="progress-wrap" style="margin-top:8px;border-radius:4px">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+
+      <!-- Zone Config -->
+      <div class="card">
+        <div class="card-title">Zone Configuration</div>
+
+        <!-- Boundary sliders -->
+        <div class="zone-slider-row">
+          <div class="zone-slug"><div class="zone-dot" style="background:var(--north)"></div>North %</div>
+          <input type="range" id="slNorth" min="10" max="50" value="25" oninput="onSlider('north',this.value)">
+          <span class="slider-val" id="valNorth">25%</span>
+        </div>
+        <div class="zone-slider-row">
+          <div class="zone-slug"><div class="zone-dot" style="background:var(--south)"></div>South %</div>
+          <input type="range" id="slSouth" min="10" max="50" value="25" oninput="onSlider('south',this.value)">
+          <span class="slider-val" id="valSouth">25%</span>
+        </div>
+        <div class="zone-slider-row">
+          <div class="zone-slug"><div class="zone-dot" style="background:var(--west)"></div>West %</div>
+          <input type="range" id="slWest" min="10" max="50" value="25" oninput="onSlider('west',this.value)">
+          <span class="slider-val" id="valWest">25%</span>
+        </div>
+        <div class="zone-slider-row">
+          <div class="zone-slug"><div class="zone-dot" style="background:var(--east)"></div>East %</div>
+          <input type="range" id="slEast" min="10" max="50" value="25" oninput="onSlider('east',this.value)">
+          <span class="slider-val" id="valEast">25%</span>
         </div>
 
-        <div class="col-lg-8">
-            <div class="data-card mb-4 text-center">
-                <p class="text-muted small text-uppercase mb-0">Total Detected Heads</p>
-                <div class="count-display" id="mainCount">0</div>
-            </div>
-
-            <div id="viewport">
-                <div class="dir-label n">NORTH</div>
-                <div class="dir-label s">SOUTH</div>
-                <div class="dir-label w">WEST</div>
-                <div class="dir-label e">EAST</div>
-                
-                <img id="displayImg" src="https://via.placeholder.com/1280x720?text=System+Ready+for+Inference" alt="Output Feed">
-            </div>
+        <!-- Zone toggles -->
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+          <div class="card-title" style="margin-bottom:8px">Enable Zones</div>
+          <div class="toggle-row"><span class="toggle-label" style="color:var(--north)">North</span><label class="toggle"><input type="checkbox" id="tgNorth" checked><span class="track"></span></label></div>
+          <div class="toggle-row"><span class="toggle-label" style="color:var(--south)">South</span><label class="toggle"><input type="checkbox" id="tgSouth" checked><span class="track"></span></label></div>
+          <div class="toggle-row"><span class="toggle-label" style="color:var(--west)">West</span><label class="toggle"><input type="checkbox" id="tgWest" checked><span class="track"></span></label></div>
+          <div class="toggle-row"><span class="toggle-label" style="color:var(--east)">East</span><label class="toggle"><input type="checkbox" id="tgEast" checked><span class="track"></span></label></div>
+          <div class="toggle-row"><span class="toggle-label" style="color:var(--center)">Center</span><label class="toggle"><input type="checkbox" id="tgCenter" checked><span class="track"></span></label></div>
         </div>
-    </div>
+      </div>
+
+      <!-- Zone Stats -->
+      <div class="card">
+        <div class="card-title">Zone Statistics</div>
+        <table class="zone-table">
+          <thead>
+            <tr><th>Zone</th><th>Now</th><th>Peak</th><th>Density</th></tr>
+          </thead>
+          <tbody id="zoneTableBody">
+            <tr><td colspan="4" class="empty-state">No data yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Anomaly Log -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin-bottom:0">Anomaly Log</div>
+          <span id="anomalyCount" style="font-size:11px;color:var(--danger)"></span>
+        </div>
+        <div class="anomaly-log" id="anomalyLog">
+          <div class="empty-state">No anomalies detected</div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ── Main ──────────────────────────────────────────────────── -->
+    <main>
+
+      <!-- Metric Bar -->
+      <div class="metric-bar">
+        <div class="metric-card">
+          <div class="metric-label">Total Detected</div>
+          <div class="metric-value" id="metricTotal" style="color:var(--accent)">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Active Zones</div>
+          <div class="metric-value" id="metricZones" style="color:var(--ok)">5</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Alerts</div>
+          <div class="metric-value" id="metricAlerts" style="color:var(--danger)">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Frames</div>
+          <div class="metric-value" id="metricFrames" style="color:var(--muted)">0</div>
+        </div>
+      </div>
+
+      <!-- Viewport -->
+      <div class="frame-area">
+        <div class="viewport-wrap" id="viewportWrap">
+          <div class="dir-badge dir-N" id="badgeN">N · 0</div>
+          <div class="dir-badge dir-S" id="badgeS">S · 0</div>
+          <div class="dir-badge dir-W" id="badgeW">W · 0</div>
+          <div class="dir-badge dir-E" id="badgeE">E · 0</div>
+          <img id="displayImg" src="" alt="Upload a file to begin" style="opacity:.3;filter:grayscale(1)">
+          <canvas id="zoneCanvas"></canvas>
+        </div>
+
+        <!-- Bottom panel -->
+        <div class="bottom-panel">
+          <div class="flow-section">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="flow-title">Zone Flow</div>
+              <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+            </div>
+            <svg id="flowDiagram" viewBox="0 0 420 130" preserveAspectRatio="xMidYMid meet">
+              <!-- Boxes -->
+              <g id="flowBoxes"></g>
+              <!-- Arrows -->
+              <g id="flowArrows"></g>
+              <!-- Labels -->
+              <g id="flowLabels"></g>
+            </svg>
+          </div>
+          <div class="velocity-section">
+            <div class="flow-title">Velocity · px/s</div>
+            <table>
+              <thead><tr><th>Zone</th><th>Avg</th><th>Status</th></tr></thead>
+              <tbody id="velocityTable">
+                <tr><td colspan="3" class="empty-state" style="padding:12px 0;color:var(--muted);font-size:11px">No tracking data</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
 </div>
 
 <script>
-    async function execute() {
-        const file = document.getElementById('mediaInput').files[0];
-        if(!file) return alert("Please select a file.");
+// ── State ────────────────────────────────────────────────────────────────────
+const ZONE_COLORS = {
+  North: '#3b82f6', South: '#f59e0b',
+  East:  '#22c55e', West:  '#ef4444', Center: '#a78bfa'
+};
+const ZONES = ['North', 'South', 'East', 'West', 'Center'];
 
-        const btn = document.getElementById('runBtn');
-        btn.disabled = true;
-        btn.innerText = "Processing...";
+let lastStats = null;
+let sessionStart = null;
+let timerInterval = null;
+let videoAbort = null;
+let transitions = {};   // {from_to: count}
+let velocities = {};    // {zone: avg_velocity}
 
-        const fd = new FormData();
-        fd.append("file", file);
+// Zone config mirrors sliders
+let cfg = { north: 25, south: 25, west: 25, east: 25 };
+let toggles = { North: true, South: true, East: true, West: true, Center: true };
 
-        try {
-            const res = await fetch('/predict', { method: 'POST', body: fd });
-            const data = await res.json();
+// ── Session timer ─────────────────────────────────────────────────────────────
+function startTimer() {
+  sessionStart = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const sec = Math.floor((Date.now() - sessionStart) / 1000);
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    document.getElementById('sessionTimer').textContent = `${m}:${s}`;
+  }, 1000);
+}
 
-            if(data.type === "image") {
-                document.getElementById('displayImg').src = "data:image/jpeg;base64," + data.image;
-                document.getElementById('mainCount').innerText = data.total;
-                document.getElementById('znw').innerText = data.zones["North-West"];
-                document.getElementById('zne').innerText = data.zones["North-East"];
-                document.getElementById('zsw').innerText = data.zones["South-West"];
-                document.getElementById('zse').innerText = data.zones["South-East"];
+// ── File input / drag-drop ────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  fileInput.files = e.dataTransfer.files;
+  onFileChosen();
+});
+fileInput.addEventListener('change', onFileChosen);
+
+function onFileChosen() {
+  const f = fileInput.files[0];
+  if (!f) return;
+  document.getElementById('fileName').textContent = f.name;
+}
+
+// ── Sliders ──────────────────────────────────────────────────────────────────
+function onSlider(zone, val) {
+  cfg[zone] = parseInt(val);
+  document.getElementById('val' + zone.charAt(0).toUpperCase() + zone.slice(1)).textContent = val + '%';
+}
+
+// ── Main run ─────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const file = fileInput.files[0];
+  if (!file) { alert('Please select a file.'); return; }
+
+  if (videoAbort) { videoAbort.abort(); videoAbort = null; }
+  transitions = {}; velocities = {};
+  resetUI();
+  startTimer();
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = '⏳ Processing…';
+
+  const isVideo = file.type.startsWith('video/');
+  const params = new URLSearchParams({
+    north_h: cfg.north / 100, south_h: cfg.south / 100,
+    east_w:  cfg.east  / 100, west_w:  cfg.west  / 100,
+    center:  toggles.Center,
+    north:   toggles.North,  south: toggles.South,
+    east:    toggles.East,   west:  toggles.West,
+  });
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  if (!isVideo) {
+    // ── Image mode ──────────────────────────────────────────────────────────
+    try {
+      const res = await fetch('/predict?' + params, { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.type === 'image') {
+        applyFrame(data);
+        updateAnomalies(data.anomalies || []);
+        updateTransitionLog(data.transitions || []);
+        renderFlowDiagram();
+        renderVelocity();
+        document.getElementById('progressBar').style.width = '100%';
+      }
+    } catch (e) { console.error(e); }
+    btn.disabled = false; btn.textContent = '▶ RUN ANALYTICS';
+  } else {
+    // ── Video streaming mode ─────────────────────────────────────────────────
+    const controller = new AbortController();
+    videoAbort = controller;
+    const sampleParam = `&sample=3`;
+
+    try {
+      const res = await fetch('/predict/video?' + params + sampleParam, {
+        method: 'POST', body: fd, signal: controller.signal
+      });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.done) {
+              document.getElementById('progressBar').style.width = '100%';
             } else {
-                alert("Video received. Analyzing frames...");
+              applyFrame(data);
+              updateAnomalies(data.anomalies || []);
+              updateTransitionLog(data.transitions || []);
+              renderFlowDiagram();
+              renderVelocity();
             }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "RUN ANALYTICS";
+          } catch (_) {}
         }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error(e);
     }
+    btn.disabled = false; btn.textContent = '▶ RUN ANALYTICS';
+  }
+}
+
+// ── Apply a frame result to the UI ────────────────────────────────────────────
+function applyFrame(data) {
+  // Image
+  if (data.image) {
+    const img = document.getElementById('displayImg');
+    img.style.opacity = '1'; img.style.filter = '';
+    img.src = 'data:image/jpeg;base64,' + data.image;
+  }
+
+  const zones = data.zones || {};
+  const peaks = data.peaks || {};
+
+  // Directional badges
+  document.getElementById('badgeN').textContent = `N · ${zones.North || 0}`;
+  document.getElementById('badgeS').textContent = `S · ${zones.South || 0}`;
+  document.getElementById('badgeW').textContent = `W · ${zones.West  || 0}`;
+  document.getElementById('badgeE').textContent = `E · ${zones.East  || 0}`;
+
+  // Metrics
+  document.getElementById('metricTotal').textContent  = data.total ?? '—';
+  document.getElementById('metricFrames').textContent = data.frame !== undefined ? data.frame : (parseInt(document.getElementById('metricFrames').textContent) + 1);
+  document.getElementById('metricAlerts').textContent = (data.anomalies || []).length
+    + parseInt(document.getElementById('metricAlerts').textContent || 0);
+
+  // Zone stats table
+  updateZoneTable(zones, peaks);
+  lastStats = data;
+}
+
+function updateZoneTable(zones, peaks) {
+  const tbody = document.getElementById('zoneTableBody');
+  const total = Object.values(zones).reduce((a, b) => a + b, 0);
+  let html = '';
+  for (const z of ZONES) {
+    const cnt  = zones[z] || 0;
+    const pk   = peaks[z] || 0;
+    const dens = cnt ? (cnt / 100).toFixed(3) : '—';
+    const statusClass = cnt > 8 ? 'status-bad' : cnt > 4 ? 'status-warn' : 'status-ok';
+    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ZONE_COLORS[z]};margin-right:6px"></span>`;
+    html += `<tr>
+      <td>${dot}${z}</td>
+      <td class="${statusClass}">${cnt}</td>
+      <td style="color:var(--muted)">${pk}</td>
+      <td style="color:var(--muted)">${dens}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+// ── Anomaly log ───────────────────────────────────────────────────────────────
+let totalAnomalies = 0;
+function updateAnomalies(list) {
+  if (!list.length) return;
+  const log = document.getElementById('anomalyLog');
+  // Remove empty state
+  const empty = log.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  totalAnomalies += list.length;
+  document.getElementById('anomalyCount').textContent = totalAnomalies + ' total';
+  document.getElementById('metricAlerts').textContent = totalAnomalies;
+
+  for (const a of list) {
+    const el = document.createElement('div');
+    el.className = 'anomaly-item';
+    const typeKey = (a.type || '').replace(/\s+/g, '-');
+    el.innerHTML = `
+      <div class="a-type a-${typeKey}">${a.type}</div>
+      <div class="a-detail">${a.zone}${a.person_id != null ? ` · #${a.person_id}` : ''} · ${a.timestamp}</div>
+      <div class="a-detail">${a.detail || ''}</div>`;
+    log.insertBefore(el, log.firstChild);
+    if (log.children.length > 80) log.removeChild(log.lastChild);
+  }
+}
+
+// ── Transitions / flow ────────────────────────────────────────────────────────
+function updateTransitionLog(list) {
+  for (const t of list) {
+    if (t.from_zone && t.zone) {
+      const key = t.from_zone + '→' + t.zone;
+      transitions[key] = (transitions[key] || 0) + 1;
+    }
+  }
+}
+
+// ── Flow Diagram (SVG) ────────────────────────────────────────────────────────
+const FLOW_POSITIONS = {
+  North:  { x: 175, y: 15, w: 70, h: 24 },
+  South:  { x: 175, y: 91, w: 70, h: 24 },
+  West:   { x: 10,  y: 53, w: 70, h: 24 },
+  East:   { x: 340, y: 53, w: 70, h: 24 },
+  Center: { x: 175, y: 53, w: 70, h: 24 },
+};
+
+function renderFlowDiagram() {
+  const svg = document.getElementById('flowDiagram');
+  const boxes  = document.getElementById('flowBoxes');
+  const arrows = document.getElementById('flowArrows');
+  const labels = document.getElementById('flowLabels');
+  boxes.innerHTML = ''; arrows.innerHTML = ''; labels.innerHTML = '';
+
+  const cnt = lastStats?.zones || {};
+
+  // Draw boxes
+  for (const [z, pos] of Object.entries(FLOW_POSITIONS)) {
+    if (!toggles[z]) continue;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', pos.x); rect.setAttribute('y', pos.y);
+    rect.setAttribute('width', pos.w); rect.setAttribute('height', pos.h);
+    rect.setAttribute('rx', 5);
+    rect.setAttribute('fill', ZONE_COLORS[z] + '22');
+    rect.setAttribute('stroke', ZONE_COLORS[z]);
+    rect.setAttribute('stroke-width', '1.5');
+    boxes.appendChild(rect);
+
+    const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    txt.setAttribute('x', pos.x + pos.w / 2);
+    txt.setAttribute('y', pos.y + 15);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('fill', ZONE_COLORS[z]);
+    txt.setAttribute('font-size', '10');
+    txt.setAttribute('font-weight', '600');
+    txt.textContent = `${z} (${cnt[z] || 0})`;
+    labels.appendChild(txt);
+  }
+
+  // Draw transition arrows
+  const MAX_W = 5;
+  const maxTrans = Math.max(1, ...Object.values(transitions));
+  for (const [key, count] of Object.entries(transitions)) {
+    const [from, to] = key.split('→');
+    const fp = FLOW_POSITIONS[from]; const tp = FLOW_POSITIONS[to];
+    if (!fp || !tp) continue;
+    const x1 = fp.x + fp.w / 2, y1 = fp.y + fp.h / 2;
+    const x2 = tp.x + tp.w / 2, y2 = tp.y + tp.h / 2;
+    const w = 1 + (count / maxTrans) * (MAX_W - 1);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', '#58a6ff'); line.setAttribute('stroke-width', w);
+    line.setAttribute('stroke-opacity', '0.5');
+    line.setAttribute('marker-end', 'url(#arrowhead)');
+    arrows.appendChild(line);
+
+    // Count label on midpoint
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const lt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lt.setAttribute('x', mx); lt.setAttribute('y', my - 4);
+    lt.setAttribute('text-anchor', 'middle');
+    lt.setAttribute('fill', '#8b949e');
+    lt.setAttribute('font-size', '9');
+    lt.textContent = count;
+    labels.appendChild(lt);
+  }
+
+  // Arrowhead marker
+  if (!document.getElementById('arrowhead')) {
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.innerHTML = `<marker id="arrowhead" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#58a6ff" opacity="0.6"/>
+    </marker>`;
+    svg.insertBefore(defs, svg.firstChild);
+  }
+}
+
+// ── Velocity table ────────────────────────────────────────────────────────────
+function renderVelocity() {
+  const tbody = document.getElementById('velocityTable');
+  // Build from anomalies (running = high velocity, stationary = low)
+  // We don't have per-zone velocity in the HTTP response, so show placeholder
+  let html = '';
+  for (const z of ZONES) {
+    const v = velocities[z];
+    const disp = v != null ? v.toFixed(1) : '—';
+    const status = v == null ? '—' : v > 30 ? '<span class="status-bad">Running</span>'
+      : v < 1 ? '<span class="status-warn">Static</span>'
+      : '<span class="status-ok">Normal</span>';
+    html += `<tr>
+      <td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${ZONE_COLORS[z]};margin-right:5px"></span>${z}</td>
+      <td>${disp}</td>
+      <td>${status}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
+async function exportCSV() {
+  const res = await fetch('/session/report');
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `crowd_report_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.csv`;
+  a.click();
+}
+
+// ── Reset UI ──────────────────────────────────────────────────────────────────
+function resetUI() {
+  totalAnomalies = 0;
+  document.getElementById('metricTotal').textContent = '—';
+  document.getElementById('metricAlerts').textContent = '0';
+  document.getElementById('metricFrames').textContent = '0';
+  document.getElementById('anomalyCount').textContent = '';
+  document.getElementById('anomalyLog').innerHTML = '<div class="empty-state">No anomalies detected</div>';
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('flowBoxes').innerHTML = '';
+  document.getElementById('flowArrows').innerHTML = '';
+  document.getElementById('flowLabels').innerHTML = '';
+  document.getElementById('velocityTable').innerHTML = '<tr><td colspan="3" class="empty-state" style="padding:12px 0;color:var(--muted);font-size:11px">No tracking data</td></tr>';
+  document.getElementById('badgeN').textContent = 'N · 0';
+  document.getElementById('badgeS').textContent = 'S · 0';
+  document.getElementById('badgeW').textContent = 'W · 0';
+  document.getElementById('badgeE').textContent = 'E · 0';
+  document.getElementById('zoneTableBody').innerHTML = '<tr><td colspan="4" class="empty-state">No data yet</td></tr>';
+  transitions = {}; velocities = {}; lastStats = null;
+  renderFlowDiagram();
+}
+
+// ── Toggle active zone count metric ──────────────────────────────────────────
+function updateActiveZones() {
+  const active = Object.values(toggles).filter(Boolean).length;
+  document.getElementById('metricZones').textContent = active;
+}
+for (const z of ZONES) {
+  document.getElementById('tg' + z).addEventListener('change', function() {
+    toggles[z] = this.checked; updateActiveZones();
+  });
+}
+
+// Init
+updateActiveZones();
+renderFlowDiagram();
 </script>
 </body>
 </html>

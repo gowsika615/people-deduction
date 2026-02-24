@@ -88,7 +88,7 @@ python -m venv .venv
 ### 3. Install Dependencies
 
 ```bash
-pip install fastapi uvicorn ultralytics opencv-python pillow numpy
+pip install fastapi uvicorn ultralytics opencv-python pillow numpy python-multipart
 ```
 
 > **Note:** Model weights (`yolov8m.pt`, `yolov8s.pt`) in the project root are used automatically. If missing, Ultralytics will download them on first run.
