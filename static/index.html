@@ -56,7 +56,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 14px 28px;
-    background: rgba(7,10,15,0.92);
+    background: rgba(var(--bg-rgb),.9);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
@@ -332,7 +332,7 @@
   .video-frame {
     flex: 1;
     position: relative;
-    background: #050709;
+    background: var(--surface2);
     overflow: hidden;
     margin: 16px;
     border-radius: 10px;
@@ -469,7 +469,7 @@
     width: 56px; height: 56px;
     border-radius: 50%;
     border: 1px solid var(--border);
-    background: rgba(7,10,15,0.8);
+    background: rgba(var(--bg-rgb),.8);
     display: grid;
     place-items: center;
     font-size: 9px;
@@ -667,7 +667,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(7,10,15,0.92);
+    background: rgba(var(--bg-rgb),.9);
     z-index: 200;
     place-items: center;
     backdrop-filter: blur(8px);
@@ -829,6 +829,137 @@
 
   .tab-content { display: none; }
   .tab-content.active { display: block; }
+
+.theme-toggle{
+  width:32px;height:32px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;display:grid;place-items:center;
+  font-size:14px;transition:all .2s;color:var(--text);flex-shrink:0;
+}
+.theme-toggle:hover{border-color:var(--accent);background:var(--surface2);}
+
+
+
+/* ══ COLOR TOKENS ═══════════════════════════════════════════════ */
+:root {
+  /* LIGHT (default) */
+  --bg:       #f1f5f9;
+  --surface:  #ffffff;
+  --surface2: #e8edf4;
+  --border:   #cbd5e1;
+  --text:     #0f172a;
+  --muted:    #64748b;
+  --accent:   #0284c7;
+  --north:    #0369a1;
+  --south:    #92400e;
+  --east:     #166534;
+  --west:     #991b1b;
+  --center:   #6d28d9;
+  --alert:    #dc2626;
+  --warn:     #d97706;
+  --ok:       #16a34a;
+  --bg-rgb:   241,245,249;
+  --shadow:   0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+}
+
+/* DARK */
+[data-theme="dark"] {
+  --bg:       #070a0f;
+  --surface:  #0d1117;
+  --surface2: #131920;
+  --border:   #1e2a38;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --accent:   #38bdf8;
+  --north:    #38bdf8;
+  --south:    #facc15;
+  --east:     #4ade80;
+  --west:     #f87171;
+  --center:   #a78bfa;
+  --alert:    #ef4444;
+  --warn:     #f97316;
+  --ok:       #22c55e;
+  --bg-rgb:   7,10,15;
+  --shadow:   0 1px 3px rgba(0,0,0,.4);
+}
+
+/* ══ THEME-AWARE OVERRIDES ══════════════════════════════════════ */
+body { background: var(--bg); color: var(--text); }
+
+body::before {
+  background-image:
+    linear-gradient(rgba(var(--accent-rgb, 2,132,199),.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb, 2,132,199),.04) 1px, transparent 1px);
+}
+
+.topbar {
+  background: rgba(var(--bg-rgb),.94) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-left, .sidebar-right { background: var(--bg); }
+.center-panel { background: var(--bg); }
+
+.zone-card { background: var(--surface); border-color: var(--border); color: var(--text); }
+.zone-card.active { background: var(--surface2); }
+
+.stat-cell { background: var(--bg); color: var(--text); }
+.stat-value { color: var(--text); }
+
+.video-toolbar { background: var(--bg); color: var(--text); border-color: var(--border); }
+.video-frame { background: var(--surface2); border-color: var(--border); }
+
+.ticker { background: var(--surface); border-color: var(--border); }
+.ticker-label { background: rgba(220,38,38,.08); }
+[data-theme="dark"] .ticker-label { background: rgba(239,68,68,.08); }
+
+.flow-node { background: var(--surface); border-color: var(--border); color: var(--text); }
+
+.tab-nav { background: var(--bg); border-color: var(--border); }
+.tab { color: var(--muted); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-content { background: var(--bg); }
+.panel-section { background: var(--bg); }
+
+.anomaly-item { background: var(--surface); }
+.anomaly-title { color: var(--text); }
+
+.vel-card { background: var(--surface); border-color: var(--border); }
+
+.upload-modal { background: var(--surface); border-color: var(--border); }
+.upload-overlay.show { background: rgba(var(--bg-rgb),.92); }
+.upload-modal-header { color: var(--text); border-color: var(--border); }
+.upload-drop { border-color: var(--border); color: var(--muted); }
+.modal-actions { border-color: var(--border); }
+
+.tb-btn { background: var(--surface); border-color: var(--border); color: var(--muted); }
+.tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+.tb-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(2,132,199,.08); }
+[data-theme="dark"] .tb-btn.active { background: rgba(56,189,248,.08); }
+
+.log-table th { color: var(--muted); border-color: var(--border); }
+.log-table td { border-color: rgba(var(--border-rgb, 203,213,225),.5); }
+.log-table tr:hover td { background: var(--surface); }
+
+.pid-badge { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+/* compass */
+.compass { background: rgba(var(--bg-rgb),.88); border-color: var(--border); }
+
+/* frame label */
+#frameLabel { background: rgba(var(--bg-rgb),.82) !important; }
+
+/* theme toggle */
+.theme-toggle {
+  width: 32px; height: 32px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; display: grid; place-items: center;
+  font-size: 15px; transition: all .2s; flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: var(--accent); background: var(--surface2); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 </style>
 </head>
 <body>
@@ -839,6 +970,9 @@
   <div class="topbar-right">
     <span id="clock" style="font-size:12px;color:var(--text)"></span>
     <button class="upload-btn" onclick="document.getElementById('uploadOverlay').classList.add('show')">⬆ Upload Feed</button>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+      <span id="themeIcon">🌙</span>
+    </button>
   </div>
 </header>
 
@@ -1010,7 +1144,7 @@
           </div>
         </div>
 
-        <div style="position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);background:rgba(7,10,15,.7);padding:4px 8px;border-radius:4px;" id="frameLabel">FRAME — · —</div>
+        <div style="position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);background:rgba(var(--bg-rgb,240,244,248),.85);padding:4px 8px;border-radius:4px;" id="frameLabel">FRAME — · —</div>
         <div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border)"><div id="progressBar" style="height:100%;width:0%;background:var(--accent);transition:width .3s"></div></div>
       </div>
 
@@ -1313,6 +1447,31 @@ async function exportCSV(){
   a.download='crowd_report_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.csv';
   a.click();
 }
+
+// ─ THEME ──────────────────────────────────────────
+(function(){
+  var saved = localStorage.getItem('csTheme') || 'light';
+  if(saved === 'dark') document.documentElement.setAttribute('data-theme','dark');
+})();
+
+function toggleTheme(){
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if(isDark){
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('themeIcon').textContent = '🌙';
+    localStorage.setItem('csTheme','light');
+  } else {
+    document.documentElement.setAttribute('data-theme','dark');
+    document.getElementById('themeIcon').textContent = '☀️';
+    localStorage.setItem('csTheme','dark');
+  }
+}
+
+// Set correct icon on load
+document.addEventListener('DOMContentLoaded', function(){
+  var ic = document.getElementById('themeIcon');
+  if(ic) ic.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+});
 </script>
 </body>
 </html>
