@@ -235,10 +235,26 @@ def process_frame(img_bgr: np.ndarray, cfg: ZoneConfig,
 
     # Run inference
     if use_tracking:
-        results = model.track(img_bgr, persist=True, conf=0.45,
-                              classes=0, verbose=False)
+     results = model.track(
+        img_bgr,
+        persist=True,
+        imgsz=1280,          # 🔥 higher resolution for dense crowds
+        conf=0.20,           # 🔥 lower confidence = more people detected
+        iou=0.75,            # 🔥 allow overlapping people
+        agnostic_nms=True,   # 🔥 prevent NMS from killing close heads
+        classes=0,
+        verbose=False
+    )
     else:
-        results = model.predict(img_bgr, conf=0.45, classes=0, verbose=False)
+      results = model.predict(
+        img_bgr,
+        imgsz=1280,          # 🔥 higher resolution
+        conf=0.20,           # 🔥 key change
+        iou=0.75,
+        agnostic_nms=True,
+        classes=0,
+        verbose=False
+    )
 
     current_ids_in_frame = set()
     new_zone_counts: dict[str, int] = defaultdict(int)
@@ -248,11 +264,17 @@ def process_frame(img_bgr: np.ndarray, cfg: ZoneConfig,
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-            # Head box: top ¼ of bounding box
-            head_h = (y2 - y1) // 4
+            # Head box: top ~20% of bounding box (robust head approximation)
+            box_h = y2 - y1
+            head_h = int(box_h * 0.20)
+            # Safety clamp to avoid zero / overflow
+            head_h = max(6, min(head_h, box_h))
+
             head_y2 = y1 + head_h
+
+            # Head centroid (used for zone assignment)
             cx = (x1 + x2) // 2
-            cy = (y1 + head_y2) // 2
+            cy = y1 + head_h // 2
 
             zone = assign_zone(cx, cy, w, h, cfg)
             new_zone_counts[zone] += 1
